@@ -1,13 +1,15 @@
 // Winter scenery behind the card for Weihnachten: falling snow in three depths and
-// fir trees on snowy ground. The layers shift with the mouse (parallax); on phones
-// the snow falls towards the real "down" from the accelerometer, tilting moves the
-// layers and shaking whirls the snow up like a snow globe.
+// fir trees on snowy ground. The snow plays along: the mouse shifts the layers
+// (parallax) and pushes flakes aside, a tap blows them away, a finger sweeps them
+// along, and scrolling is wind that carries and swirls them.
 //
 // It runs on its own and follows html[data-anlass], so the app only calls start().
 
 const TAU = Math.PI * 2;
 
-/** Snow layers, far to near. Density is flakes per pixel of screen area. */
+/** Snow layers, far to near. Density is flakes per pixel of screen area; the near
+ * crystals are counted per screen and drawn in front of the card, so the snow you
+ * touch and scroll is visible even on a phone, where the card fills the width. */
 const SNOW = [
   {
     depth: 0.15,
@@ -25,24 +27,40 @@ const SNOW = [
     alpha: 0.6,
     crystal: false,
   },
-  { depth: 1.0, density: 1 / 120000, size: [5, 8.5], speed: [42, 64], alpha: 0.75, crystal: true },
+  {
+    depth: 1.0,
+    count: (area) => clamp(Math.round(area / 60000), 6, 16),
+    size: [5, 8.5],
+    speed: [42, 64],
+    alpha: 0.8,
+    crystal: true,
+  },
 ];
 const MAX_SHIFT_X = 34; // px at depth 1
 const MAX_SHIFT_Y = 16;
 
 export function start() {
   if (typeof window === "undefined" || document.getElementById("scenery")) return;
-  const canvas = document.createElement("canvas");
-  canvas.id = "scenery";
-  canvas.setAttribute("aria-hidden", "true");
-  document.body.prepend(canvas);
-  new Scenery(canvas);
+  const layer = (id) => {
+    const canvas = document.createElement("canvas");
+    canvas.id = id;
+    canvas.setAttribute("aria-hidden", "true");
+    return canvas;
+  };
+  const back = layer("scenery");
+  const front = layer("scenery-front");
+  document.body.prepend(back);
+  document.body.append(front);
+  // Reachable from the console and browser tests as document.getElementById("scenery").scenery
+  back.scenery = new Scenery(back, front);
 }
 
 class Scenery {
-  constructor(canvas) {
+  constructor(canvas, front) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
+    this.front = front;
+    this.fctx = front.getContext("2d");
     this.still = window.matchMedia("(prefers-reduced-motion: reduce)");
     this.flakes = [];
     this.trees = { back: [], near: [], width: 0 };
@@ -51,12 +69,14 @@ class Scenery {
     this.running = false;
     this.last = 0;
 
-    // Inputs, all smoothed in step()
+    // Inputs, all smoothed or decayed in step()
     this.parallax = { x: 0, y: 0, tx: 0, ty: 0 };
-    this.fall = { x: 0, y: 1, tx: 0, ty: 1 }; // direction snow falls in, screen space
-    this.wind = 0;
-    this.pointer = null; // {x, y} for pushing flakes aside
-    this.motion = null; // accelerometer state once it reports
+    this.fall = { x: 0, y: 1 }; // direction snow falls in, screen space
+    this.wind = 0; // sideways gust from a quick mouse sweep, px/s
+    this.lift = 0; // vertical gust from scrolling, px/s
+    this.stir = 0; // 0..1, how much scrolling swirls the flakes
+    this.pointer = null; // mouse {x, y}
+    this.touch = null; // finger {x, y, vx, vy, t}
 
     this.resize();
     this.listen();
@@ -96,18 +116,78 @@ class Scenery {
       this.parallax.ty = 0;
     });
 
-    window.addEventListener("devicemotion", (e) => this.onMotion(e));
-    // iOS reports motion only after the user agrees, and the question has to come from
-    // a tap. Ask on the first tap that is not on a control, so it never gets in the way.
-    const ask = globalThis.DeviceMotionEvent?.requestPermission;
-    if (typeof ask === "function") {
-      const onTap = (e) => {
-        if (e.target.closest?.("a, button, input, textarea, select, label")) return;
-        window.removeEventListener("pointerup", onTap);
-        ask.call(DeviceMotionEvent).catch(() => {});
-      };
-      window.addEventListener("pointerup", onTap);
+    // Touch: a tap blows the flakes away, a moving finger sweeps them along
+    const finger = (e) => e.touches[0] || e.changedTouches[0];
+    const opts = { passive: true };
+    window.addEventListener(
+      "touchstart",
+      (e) => {
+        const t = finger(e);
+        this.touch = { x: t.clientX, y: t.clientY, vx: 0, vy: 0, t: e.timeStamp };
+        this.blow(t.clientX, t.clientY);
+      },
+      opts,
+    );
+    window.addEventListener(
+      "touchmove",
+      (e) => {
+        const t = finger(e);
+        const touch = this.touch;
+        if (!touch) return;
+        const dt = Math.max(8, e.timeStamp - touch.t) / 1000;
+        touch.vx += ((t.clientX - touch.x) / dt - touch.vx) * 0.5;
+        touch.vy += ((t.clientY - touch.y) / dt - touch.vy) * 0.5;
+        touch.x = t.clientX;
+        touch.y = t.clientY;
+        touch.t = e.timeStamp;
+      },
+      opts,
+    );
+    const lift = () => {
+      this.touch = null;
+    };
+    window.addEventListener("touchend", lift, opts);
+    window.addEventListener("touchcancel", lift, opts);
+
+    // Scrolling is wind: the snow is carried along with the page and swirls
+    let lastScroll = { y: window.scrollY, t: performance.now() };
+    window.addEventListener(
+      "scroll",
+      () => {
+        const now = performance.now();
+        const dt = Math.max(8, now - lastScroll.t) / 1000;
+        const v = clamp((window.scrollY - lastScroll.y) / dt, -4000, 4000);
+        lastScroll = { y: window.scrollY, t: now };
+        this.lift = clamp(this.lift - v * 0.35, -700, 700);
+        this.stir = Math.max(this.stir, Math.min(1, Math.abs(v) / 1500));
+      },
+      opts,
+    );
+  }
+
+  /** A puff from a tap: flakes nearby fly outwards, the near ones furthest. */
+  blow(x, y) {
+    const reach = Math.max(160, Math.min(this.w, this.h) * 0.6);
+    for (const flake of this.flakes) {
+      const depth = SNOW[flake.layer].depth;
+      const [sx, sy] = this.onScreen(flake);
+      const dx = sx - x;
+      const dy = sy - y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 0.1 || dist > reach) continue;
+      const k = (1 - dist / reach) * 420 * (0.4 + depth);
+      flake.vx += (dx / dist) * k;
+      flake.vy += (dy / dist) * k;
     }
+  }
+
+  /** Where a flake is drawn, parallax included. */
+  onScreen(flake) {
+    const depth = SNOW[flake.layer].depth;
+    return [
+      flake.x - this.parallax.x * MAX_SHIFT_X * depth,
+      flake.y - this.parallax.y * MAX_SHIFT_Y * depth,
+    ];
   }
 
   /** Turn on for Weihnachten, fade out for everything else. */
@@ -141,9 +221,14 @@ class Scenery {
     const h = window.innerHeight;
     this.w = w;
     this.h = h;
-    this.canvas.width = Math.round(w * dpr);
-    this.canvas.height = Math.round(h * dpr);
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    for (const [canvas, ctx] of [
+      [this.canvas, this.ctx],
+      [this.front, this.fctx],
+    ]) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     // Phone toolbars change the height while scrolling; only a new width means new trees
     if (w !== this.trees.width) this.trees = plantTrees(w, h);
     this.populate();
@@ -155,7 +240,9 @@ class Scenery {
     const area = this.w * this.h;
     const flakes = [];
     SNOW.forEach((layer, li) => {
-      const wanted = Math.round(area * layer.density);
+      // Small screens get a little more snow; the card covers most of them
+      const boost = this.w < 700 ? 1.6 : 1;
+      const wanted = layer.count ? layer.count(area) : Math.round(area * layer.density * boost);
       const have = this.flakes.filter((f) => f.layer === li).slice(0, wanted);
       while (have.length < wanted) have.push(newFlake(li, this.w, this.h, true));
       flakes.push(...have);
@@ -202,16 +289,19 @@ class Scenery {
     p.x += (p.tx - p.x) * ease(0.35);
     p.y += (p.ty - p.y) * ease(0.35);
 
-    // Without an accelerometer the snow leans a little towards the mouse side
-    if (!this.motion) {
-      const lean = p.x * 0.22;
-      this.fall.tx = Math.sin(lean);
-      this.fall.ty = Math.cos(lean);
-    }
+    // The snow leans a little towards the side the mouse is on
+    const lean = p.x * 0.22;
     const f = this.fall;
-    f.x += (f.tx - f.x) * ease(0.3);
-    f.y += (f.ty - f.y) * ease(0.3);
+    f.x += (Math.sin(lean) - f.x) * ease(0.3);
+    f.y += (Math.cos(lean) - f.y) * ease(0.3);
     this.wind *= Math.exp(-dt / 0.9);
+    this.lift *= Math.exp(-dt / 0.5);
+    this.stir *= Math.exp(-dt / 0.7);
+    const touch = this.touch;
+    if (touch) {
+      touch.vx *= Math.exp(-dt / 0.12);
+      touch.vy *= Math.exp(-dt / 0.12);
+    }
 
     const { w, h } = this;
     const margin = 12;
@@ -223,8 +313,7 @@ class Scenery {
 
       // Flakes near the mouse get pushed aside, more so the nearer they are
       if (this.pointer && layer.depth > 0.3) {
-        const sx = flake.x - p.x * MAX_SHIFT_X * layer.depth;
-        const sy = flake.y - p.y * MAX_SHIFT_Y * layer.depth;
+        const [sx, sy] = this.onScreen(flake);
         const dx = sx - this.pointer.x;
         const dy = sy - this.pointer.y;
         const dist = Math.hypot(dx, dy);
@@ -236,14 +325,37 @@ class Scenery {
         }
       }
 
+      // A finger pushes flakes aside and drags them along the way it moves
+      if (touch) {
+        const [sx, sy] = this.onScreen(flake);
+        const dx = sx - touch.x;
+        const dy = sy - touch.y;
+        const dist = Math.hypot(dx, dy);
+        const reach = 110 + 70 * layer.depth;
+        if (dist > 0.1 && dist < reach) {
+          const near = 1 - dist / reach;
+          const grip = Math.min(1, near * 7 * dt);
+          flake.vx += (touch.vx - flake.vx) * grip + (dx / dist) * near * 500 * dt;
+          flake.vy += (touch.vy - flake.vy) * grip + (dy / dist) * near * 500 * dt;
+        }
+      }
+
+      // Scrolling swirls each flake its own way
+      if (this.stir > 0.01) {
+        const swirl = this.stir * 700 * (0.3 + layer.depth) * dt;
+        flake.vx += Math.sin(flake.phase * 2.3 + flake.spin) * swirl;
+        flake.vy += Math.cos(flake.phase * 1.7) * swirl * 0.4;
+      }
+
       const speed = flake.speed;
       flake.x += (f.x * speed + flake.vx + this.wind * (0.4 + layer.depth) + drift * f.y) * dt;
-      flake.y += (f.y * speed + flake.vy - drift * f.x) * dt;
+      flake.y +=
+        (f.y * speed + flake.vy + this.lift * (0.35 + 0.65 * layer.depth) - drift * f.x) * dt;
       const damp = Math.exp(-dt * 1.6);
       flake.vx *= damp;
       flake.vy *= damp;
 
-      // Wrap around all edges: on a phone held upside down the snow falls "up"
+      // Wrap around all edges: wind and fingers can carry flakes out of any side
       if (flake.y > h + margin) flake.y -= h + 2 * margin;
       else if (flake.y < -margin) flake.y += h + 2 * margin;
       if (flake.x > w + margin) flake.x -= w + 2 * margin;
@@ -251,95 +363,15 @@ class Scenery {
     }
   }
 
-  // -- phone motion -----------------------------------------------------------
-
-  onMotion(e) {
-    const g = e.accelerationIncludingGravity;
-    if (!g || g.x == null || g.y == null) return;
-    // Device axes to screen axes (x right, y down) for the current rotation.
-    // At rest the sensor reports the push against gravity, so gravity is the negative.
-    const angle = screen.orientation?.angle ?? window.orientation ?? 0;
-    let gx;
-    let gy;
-    switch (((angle % 360) + 360) % 360) {
-      case 90:
-        gx = g.y;
-        gy = g.x;
-        break;
-      case 180:
-        gx = g.x;
-        gy = -g.y;
-        break;
-      case 270:
-        gx = -g.y;
-        gy = -g.x;
-        break;
-      default:
-        gx = -g.x;
-        gy = g.y;
-    }
-
-    const now = e.timeStamp || performance.now();
-    if (!this.motion) {
-      this.motion = { sign: 1, votes: 0, gx, gy, slowX: gx, slowY: gy, t: now, lastGust: 0 };
-    }
-    const m = this.motion;
-    const dt = Math.min(0.2, Math.max(0.001, (now - m.t) / 1000));
-    m.t = now;
-
-    // Some browsers report the opposite sign. A phone being read is held roughly
-    // upright, so gravity should point to the bottom of the screen: let it vote.
-    if (Math.abs(gy) > 4 && m.votes < 40) {
-      m.votes++;
-      m.sign = Math.sign(gy) || 1;
-    }
-    gx *= m.sign;
-    gy *= m.sign;
-
-    const fast = 1 - Math.exp(-dt / 0.12);
-    const slow = 1 - Math.exp(-dt / 2.5);
-    const shakeX = gx - m.gx;
-    const shakeY = gy - m.gy;
-    m.gx += (gx - m.gx) * fast;
-    m.gy += (gy - m.gy) * fast;
-    m.slowX += (m.gx - m.slowX) * slow;
-    m.slowY += (m.gy - m.slowY) * slow;
-
-    // Snow falls along gravity; lying flat it settles into a slow drift downwards
-    const len = Math.hypot(m.gx, m.gy);
-    const dirX = m.gx / 9.81;
-    const dirY = m.gy / 9.81 + (len < 3 ? 0.35 : 0);
-    const n = Math.hypot(dirX, dirY) || 1;
-    const strength = Math.max(0.35, Math.min(1, len / 9.81));
-    this.fall.tx = (dirX / n) * strength;
-    this.fall.ty = (dirY / n) * strength;
-
-    // Tilting away from how the phone is usually held moves the layers
-    this.parallax.tx = clamp((m.gx - m.slowX) / 3.5, -1, 1);
-    this.parallax.ty = clamp((m.gy - m.slowY) / 3.5, -1, 1);
-
-    // A shake throws the snow against the motion, like a snow globe
-    const jolt = Math.hypot(shakeX, shakeY);
-    if (jolt > 7 && now - m.lastGust > 120) {
-      m.lastGust = now;
-      const power = Math.min(jolt - 7, 25);
-      for (const flake of this.flakes) {
-        const depth = SNOW[flake.layer].depth;
-        const k = power * (14 + 22 * depth);
-        flake.vx += (-shakeX / jolt) * k + (Math.random() - 0.5) * k * 1.4;
-        flake.vy += (-shakeY / jolt) * k + (Math.random() - 0.5) * k * 1.4;
-      }
-      this.wake();
-    }
-  }
-
   // -- drawing ----------------------------------------------------------------
 
   draw() {
-    const { ctx, w, h } = this;
+    const { ctx, fctx, w, h } = this;
     ctx.clearRect(0, 0, w, h);
+    fctx.clearRect(0, 0, w, h);
     if (this.opacity <= 0) return;
     ctx.globalAlpha = this.opacity;
+    fctx.globalAlpha = this.opacity;
     const c = this.colours;
     const shift = (depth) => [
       -this.parallax.x * MAX_SHIFT_X * depth,
@@ -356,12 +388,12 @@ class Scenery {
     const [nx, ny] = shift(0.8);
     for (const t of this.trees.near)
       drawTree(ctx, t, nx, h + ny, c.nearTree, c.caps, t.star ? c.star : null);
-    this.drawSnow(2, shift);
+    this.drawSnow(2, shift, fctx);
     ctx.globalAlpha = 1;
+    fctx.globalAlpha = 1;
   }
 
-  drawSnow(li, shift) {
-    const { ctx } = this;
+  drawSnow(li, shift, ctx = this.ctx) {
     const layer = SNOW[li];
     const [ox, oy] = shift(layer.depth);
     const [r, g, b] = this.colours.snowRGB;
@@ -377,12 +409,17 @@ class Scenery {
       ctx.fill();
       return;
     }
-    ctx.lineWidth = 1.1;
+    // A faint dark halo lets the white crystals read on the paper as well
+    ctx.lineWidth = 1.3;
     ctx.lineCap = "round";
+    ctx.shadowColor = "rgba(15, 30, 24, 0.45)";
+    ctx.shadowBlur = 2.5;
     for (const f of this.flakes) {
       if (f.layer !== li) continue;
       drawCrystal(ctx, f.x + ox, f.y + oy, f.size, f.spin);
     }
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
   }
 }
 

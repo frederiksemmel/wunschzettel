@@ -37,9 +37,10 @@ Pages by `.github/workflows/pages.yml` on every push to `main`.
 "Stilvoll": a paper card on a coloured ground, Pinyon Script for the title only,
 EB Garamond for everything else, a thin gold double frame and one ornament rule.
 The occasion (`o`) picks the ground colour through `html[data-anlass]`. For
-Weihnachten a canvas behind the card shows snow and fir trees that follow the mouse,
-and on phones the accelerometer (tilt and shake). The card stays the focus; the
-scenery stays quiet. Copy is German, sentence case, plain.
+Weihnachten, canvases behind and in front of the card show snow and fir trees that
+play along with the mouse, taps, finger drags and scrolling (scrolling is wind). Only a
+few large crystals drift in front of the card, so the text stays readable.
+Copy is German, sentence case, plain.
 
 ## Working
 

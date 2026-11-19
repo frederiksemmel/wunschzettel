@@ -59,7 +59,8 @@
   [hidden] { display: none !important; }
 
   /* winter scenery behind everything (scenery.ffi.mjs) */
-  #scenery { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  #scenery, #scenery-front { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  #scenery-front { z-index: 2; }
   #app { position: relative; z-index: 1; }
 
   /* ---------- the sheet ---------- */
@@ -283,7 +284,7 @@
     body { background: #fff; }
     .page { padding: 0; }
     .sheet { box-shadow: none; max-width: none; }
-    .below, #scenery { display: none; }
+    .below, #scenery, #scenery-front { display: none; }
   }
 </style>
 </head>
