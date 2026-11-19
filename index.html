@@ -95,8 +95,8 @@
     letter-spacing: .08em;
     color: var(--ink-soft);
   }
-  .sheet-name:empty { display: none; }
-  .ornament { display: block; margin: 2rem auto; width: 220px; max-width: 70%; height: 14px; color: var(--accent-light); }
+  .sheet-name:empty, .sheet-occasion:empty { display: none; }
+  .sheet-occasion { margin: .1rem 0 0; font-size: 1rem; font-style: italic; color: var(--ink-soft); }  .ornament { display: block; margin: 2rem auto; width: 220px; max-width: 70%; height: 14px; color: var(--accent-light); }
   .sheet-message {
     margin: 0 auto 2.4rem;
     max-width: 30em;
@@ -326,6 +326,10 @@
         </div>
       </div>
       <div class="field">
+        <label for="f-year">Jahr</label>
+        <input id="f-year" name="y" type="number" inputmode="numeric" min="1900" max="2999" step="1">
+      </div>
+      <div class="field">
         <label for="f-msg">Ein paar Worte vorweg <span class="opt">(optional)</span></label>
         <textarea id="f-msg" name="m" rows="2" placeholder="Ich freue mich über alles – am meisten über Zeit mit euch."></textarea>
       </div>
@@ -379,6 +383,8 @@
 "use strict";
 
 const ANLAESSE = ["weihnachten", "geburtstag", "schlicht"];
+const ANLASS_NAME = { weihnachten: "Weihnachten", geburtstag: "Geburtstag", schlicht: "" };
+const RESERVED = ["d", "neu", "bearbeiten"];
 const DEFAULT_TITLE = "Wunschzettel";
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -404,6 +410,7 @@ function pack(z) {
   if (z.n) o.n = z.n;
   if (z.t && z.t !== DEFAULT_TITLE) o.t = z.t;
   if (z.o && z.o !== "weihnachten") o.o = z.o;
+  if (z.y) o.y = z.y;
   if (z.m) o.m = z.m;
   o.w = z.w.filter(w => w.t || w.d || w.u).map(w => {
     const a = [w.t || "", w.d || "", w.u || ""];
@@ -416,6 +423,7 @@ function unpack(o) {
   return {
     n: str(o.n), t: str(o.t) || DEFAULT_TITLE,
     o: ANLAESSE.includes(o.o) ? o.o : "weihnachten",
+    y: Number.isInteger(o.y) ? o.y : 0,
     m: str(o.m),
     w: Array.isArray(o.w) ? o.w.map(a => ({ t: str(a[0]), d: str(a[1]), u: str(a[2]) })) : [],
   };
@@ -432,6 +440,20 @@ async function decode(s) {
   const raw = kind === "z" ? await pipe(bytes, new DecompressionStream("deflate-raw")) : bytes;
   return unpack(JSON.parse(new TextDecoder().decode(raw)));
 }
+
+/* Readable label in front of the data, e.g. "frederik-weihnachten-2026". Decoding ignores it. */
+function slug(z) {
+  const s = [z.n, ANLASS_NAME[z.o], z.y || ""]
+    .map(p => String(p).toLowerCase()
+      .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss")
+      .normalize("NFKD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""))
+    .filter(Boolean).join("-");
+  return RESERVED.includes(s) ? "von-" + s : s;
+}
+function viewHash(z, code) { const s = slug(z); return "#" + (s ? s + "&" : "") + "d=" + code; }
+function editHash(z, code) { const s = slug(z); return "#" + (s ? s + "&" : "") + "bearbeiten&d=" + code; }
+function occasionLine(z) { return [ANLASS_NAME[z.o], z.y || ""].filter(Boolean).join(" "); }
 
 /* ---------- rendering ---------- */
 
@@ -475,6 +497,7 @@ function renderSheet(sheet, z) {
   const header = make("header");
   header.append(make("h1", "sheet-title", z.t || DEFAULT_TITLE));
   header.append(make("p", "sheet-name", z.n ? "von " + z.n : ""));
+  header.append(make("p", "sheet-occasion", occasionLine(z)));
   sheet.append(header, $("#ornament-tpl").content.cloneNode(true));
   if (z.m) sheet.append(make("p", "sheet-message", z.m));
 
@@ -501,7 +524,10 @@ function renderSheet(sheet, z) {
 }
 
 function applyAnlass(o) { document.documentElement.dataset.anlass = o; }
-function setTitle(z) { document.title = (z.t || DEFAULT_TITLE) + (z.n ? " von " + z.n : ""); }
+function setTitle(z) {
+  const occ = occasionLine(z);
+  document.title = (z.t || DEFAULT_TITLE) + (z.n ? " von " + z.n : "") + (occ ? ", " + occ : "");
+}
 
 /* ---------- editor ---------- */
 
@@ -555,6 +581,7 @@ function readForm() {
     n: $("#f-name").value.trim(),
     t: $("#f-title").value.trim() || DEFAULT_TITLE,
     o: form.elements.o.value,
+    y: parseInt($("#f-year").value, 10) || 0,
     m: $("#f-msg").value.trim(),
     w: [...list.children].map(r => ({
       t: r.querySelector(".w-t").value.trim(),
@@ -567,6 +594,7 @@ function fillForm(z) {
   $("#f-name").value = z.n;
   $("#f-title").value = z.t === DEFAULT_TITLE ? "" : z.t;
   form.elements.o.value = z.o;
+  $("#f-year").value = z.y || new Date().getFullYear();
   $("#f-msg").value = z.m;
   list.replaceChildren();
   (z.w.length ? z.w : [{}]).forEach(w => addWishRow(w));
@@ -582,9 +610,9 @@ async function update() {
   const mine = ++seq;
   const code = await encode(z);
   if (mine !== seq) return;
-  shareHash = "#d=" + code;
+  shareHash = viewHash(z, code);
   $("#open-view").href = shareHash;
-  history.replaceState(null, "", "#bearbeiten&d=" + code);
+  history.replaceState(null, "", editHash(z, code));
   $("#status").textContent = "";
 }
 form.addEventListener("input", update);
@@ -618,7 +646,7 @@ async function route() {
   $("#edit").hidden = !editing;
 
   if (editing) {
-    const blank = { n: "", t: DEFAULT_TITLE, o: "weihnachten", m: "", w: [] };
+    const blank = { n: "", t: DEFAULT_TITLE, o: "weihnachten", y: 0, m: "", w: [] };
     fillForm(params.has("neu") ? blank : (z || blank));
     if (code && !z) $("#status").textContent = "Dieser Link ist unvollständig. Hier kannst du neu beginnen.";
     await update();
@@ -627,7 +655,8 @@ async function route() {
     applyAnlass(z.o);
     setTitle(z);
     renderSheet($("#view-sheet"), z);
-    $("#edit-this").href = "#bearbeiten&d=" + code;
+    $("#edit-this").href = editHash(z, code);
+    history.replaceState(null, "", viewHash(z, code));
     window.scrollTo(0, 0);
   }
 }

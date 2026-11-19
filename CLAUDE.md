@@ -6,14 +6,17 @@ to `main` deploys.
 
 ## How it works
 
-- The whole list is in the URL fragment: `#d=<code>` shows the list,
-  `#bearbeiten&d=<code>` opens the editor with that list, `#neu` (or no hash) opens a
-  blank editor.
+- The whole list is in the URL fragment: `#<label>&d=<code>` shows the list,
+  `#<label>&bearbeiten&d=<code>` opens the editor with that list, `#neu` (or no hash)
+  opens a blank editor.
+- `<label>` is a readable slug of name, occasion and year (`frederik-weihnachten-2026`,
+  `frederik-geburtstag-2026`; "Ohne Anlass" leaves the occasion out). It is cosmetic:
+  decoding ignores it, the page rewrites it from the data, and links without it work.
 - `<code>` is a one-letter prefix plus base64url: `z` = deflate-raw
   (CompressionStream) of the JSON, `j` = plain JSON (fallback for old browsers).
 - JSON shape, short keys to keep links short:
   `{n: name, t: title (omitted when "Wunschzettel"), o: "geburtstag"|"schlicht"
-  (omitted when "weihnachten"), m: message, w: [[title, description, url], ...]}`,
+  (omitted when "weihnachten"), y: year (number, omitted when unset), m: message, w: [[title, description, url], ...]}`,
   with trailing empty strings dropped from each wish.
 - Old links must keep working: change the format only additively, or bump the prefix
   letter and keep decoding the old ones.
