@@ -3,6 +3,12 @@
 // (parallax) and pushes flakes aside, a tap blows them away, a finger sweeps them
 // along, and scrolling is wind that carries and swirls them.
 //
+// Built to stay smooth and cheap at 60 fps: the trees and the ground are drawn once
+// into strips that only move by CSS transform, the crystals in front of the card are
+// small pre-drawn images moved the same way, and only the falling dots are redrawn
+// each frame, at 1x resolution. Moving finished layers is the compositor's job and
+// costs next to nothing.
+//
 // It runs on its own and follows html[data-anlass], so the app only calls start().
 
 const TAU = Math.PI * 2;
@@ -38,33 +44,63 @@ const SNOW = [
 ];
 const MAX_SHIFT_X = 34; // px at depth 1
 const MAX_SHIFT_Y = 16;
+// Strips reach this far past the screen edges, so the parallax never shows a gap
+const PAD = 48;
+
+/** The tree and ground strips, back to front, with their parallax depth. */
+const STRIPS = [
+  { name: "back", depth: 0.3 },
+  { name: "ground", depth: 0.55 },
+  { name: "near", depth: 0.8 },
+];
 
 export function start() {
   if (typeof window === "undefined" || document.getElementById("scenery")) return;
-  const layer = (id) => {
-    const canvas = document.createElement("canvas");
-    canvas.id = id;
-    canvas.setAttribute("aria-hidden", "true");
-    return canvas;
-  };
-  const back = layer("scenery");
-  const front = layer("scenery-front");
-  document.body.prepend(back);
-  document.body.append(front);
+  const scenery = new Scenery();
   // Reachable from the console and browser tests as document.getElementById("scenery").scenery
-  back.scenery = new Scenery(back, front);
+  scenery.back.scenery = scenery;
+}
+
+function layer(id) {
+  const el = document.createElement("div");
+  el.id = id;
+  el.setAttribute("aria-hidden", "true");
+  return el;
+}
+
+function placed(el, css) {
+  Object.assign(el.style, { position: "absolute", left: "0", top: "0", ...css });
+  return el;
 }
 
 class Scenery {
-  constructor(canvas, front) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext("2d");
-    this.front = front;
-    this.fctx = front.getContext("2d");
+  constructor() {
+    // Behind the page: the falling dots, then the tree and ground strips
+    this.back = layer("scenery");
+    this.dots = placed(document.createElement("canvas"), { width: "100%", height: "100%" });
+    this.ctx = this.dots.getContext("2d");
+    this.back.append(this.dots);
+    this.strips = STRIPS.map((strip) => {
+      const canvas = placed(document.createElement("canvas"), {
+        top: "auto",
+        bottom: `-${PAD}px`,
+        left: `-${PAD}px`,
+        willChange: "transform",
+      });
+      this.back.append(canvas);
+      return { ...strip, canvas, shift: "" };
+    });
+    // In front of the page: the crystals
+    this.front = layer("scenery-front");
+    document.body.prepend(this.back);
+    document.body.append(this.front);
+
     this.still = window.matchMedia("(prefers-reduced-motion: reduce)");
     this.flakes = [];
-    this.trees = { back: [], near: [], width: 0 };
-    this.opacity = 0;
+    this.trees = { width: 0 };
+    this.colourKey = "";
+    this.opacity = -1; // forces the first render to set it
+    this.shownOpacity = null;
     this.on = false;
     this.running = false;
     this.last = 0;
@@ -98,10 +134,8 @@ class Scenery {
     let lastMove = null;
     window.addEventListener("pointermove", (e) => {
       if (e.pointerType !== "mouse") return;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      this.parallax.tx = (e.clientX / w) * 2 - 1;
-      this.parallax.ty = (e.clientY / h) * 2 - 1;
+      this.parallax.tx = (e.clientX / this.w) * 2 - 1;
+      this.parallax.ty = (e.clientY / this.h) * 2 - 1;
       // A quick sweep of the mouse is a gust of wind
       if (lastMove) {
         const dt = Math.max(1, e.timeStamp - lastMove.t);
@@ -194,6 +228,13 @@ class Scenery {
   follow() {
     this.on = document.documentElement.dataset.anlass === "weihnachten";
     this.readColours();
+    const key = JSON.stringify(this.colours);
+    if (key !== this.colourKey) {
+      this.colourKey = key;
+      this.paintStrips();
+      for (const f of this.flakes) if (f.sprite) paintCrystal(f, this.colours, this.dpr);
+    }
+    if (this.opacity < 0) this.opacity = 0;
     this.wake();
   }
 
@@ -216,23 +257,55 @@ class Scenery {
   }
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    // The layers are 100vh tall: on phones that is the full screen height, which stays
+    // put while the browser's toolbar shrinks and grows during scrolling. Sizing by the
+    // window instead made the whole scene jump with the toolbar.
+    const w = this.back.clientWidth || window.innerWidth;
+    const h = this.back.clientHeight || window.innerHeight;
+    if (w === this.w && h === this.h) return;
     this.w = w;
     this.h = h;
-    for (const [canvas, ctx] of [
-      [this.canvas, this.ctx],
-      [this.front, this.fctx],
-    ]) {
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Soft dots look the same at 1x and cost a quarter of the pixels on a phone
+    this.dots.width = w;
+    this.dots.height = h;
     // Phone toolbars change the height while scrolling; only a new width means new trees
-    if (w !== this.trees.width) this.trees = plantTrees(w, h);
+    if (w !== this.trees.width) {
+      this.trees = plantTrees(w, h);
+      this.paintStrips();
+    }
     this.populate();
     this.wake();
+  }
+
+  /** Draw the trees and the ground once; afterwards they only move. */
+  paintStrips() {
+    const { colours: c, trees, w, dpr } = this;
+    if (!c || !trees.width) return;
+    const tallest = Math.max(
+      ...[...trees.back, ...trees.near].map((t) => t.base + t.height * 1.12),
+    );
+    const height = Math.ceil(tallest + 24) + PAD;
+    const bottom = height - PAD; // the bottom edge of the screen, inside the strip
+    for (const strip of this.strips) {
+      const { canvas } = strip;
+      canvas.width = Math.round((w + 2 * PAD) * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = `${w + 2 * PAD}px`;
+      canvas.style.height = `${height}px`;
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w + 2 * PAD, height);
+      if (strip.name === "back") {
+        for (const t of trees.back) drawTree(ctx, t, PAD, bottom, c.backTree, null, null);
+      } else if (strip.name === "ground") {
+        drawGround(ctx, trees.ground, w, bottom, PAD, 0, c.ground, PAD + 10);
+      } else {
+        for (const t of trees.near) {
+          drawTree(ctx, t, PAD, bottom, c.nearTree, c.caps, t.star ? c.star : null);
+        }
+      }
+    }
   }
 
   /** Keep the number of flakes in step with the screen area. */
@@ -243,8 +316,20 @@ class Scenery {
       // Small screens get a little more snow; the card covers most of them
       const boost = this.w < 700 ? 1.6 : 1;
       const wanted = layer.count ? layer.count(area) : Math.round(area * layer.density * boost);
-      const have = this.flakes.filter((f) => f.layer === li).slice(0, wanted);
-      while (have.length < wanted) have.push(newFlake(li, this.w, this.h, true));
+      const have = this.flakes.filter((f) => f.layer === li);
+      for (const gone of have.splice(wanted)) gone.sprite?.remove();
+      while (have.length < wanted) {
+        const flake = newFlake(li, this.w, this.h, true);
+        if (layer.crystal) {
+          flake.sprite = placed(document.createElement("canvas"), {
+            willChange: "transform",
+            opacity: String(layer.alpha),
+          });
+          if (this.colours) paintCrystal(flake, this.colours, this.dpr);
+          this.front.append(flake.sprite);
+        }
+        have.push(flake);
+      }
       flakes.push(...have);
     });
     this.flakes = flakes;
@@ -256,12 +341,12 @@ class Scenery {
     if (this.still.matches || document.hidden) {
       // Reduced motion (or a hidden tab): one still frame, no loop
       this.opacity = this.on ? 1 : 0;
-      this.draw();
+      this.render();
       return;
     }
     if (this.running) return;
-    if (!this.on && this.opacity === 0) {
-      this.draw();
+    if (!this.on && this.opacity <= 0) {
+      this.render();
       return;
     }
     this.running = true;
@@ -273,7 +358,7 @@ class Scenery {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.step(dt);
-    this.draw();
+    this.render();
     if ((this.on || this.opacity > 0) && !document.hidden && !this.still.matches) {
       requestAnimationFrame((t) => this.frame(t));
     } else {
@@ -304,7 +389,7 @@ class Scenery {
     }
 
     const { w, h } = this;
-    const margin = 12;
+    const margin = 20;
     for (const flake of this.flakes) {
       const layer = SNOW[flake.layer];
       const drift = Math.sin(flake.phase) * flake.sway;
@@ -365,41 +450,27 @@ class Scenery {
 
   // -- drawing ----------------------------------------------------------------
 
-  draw() {
-    const { ctx, fctx, w, h } = this;
+  render() {
+    // Fading is the compositor's job too: one opacity per layer
+    const opacity = Math.max(0, this.opacity);
+    if (opacity !== this.shownOpacity) {
+      this.shownOpacity = opacity;
+      for (const el of [this.back, this.front]) {
+        el.style.opacity = String(opacity);
+        el.style.visibility = opacity > 0 ? "visible" : "hidden";
+      }
+    }
+    if (opacity <= 0) return;
+
+    const { ctx, w, h, parallax: p } = this;
     ctx.clearRect(0, 0, w, h);
-    fctx.clearRect(0, 0, w, h);
-    if (this.opacity <= 0) return;
-    ctx.globalAlpha = this.opacity;
-    fctx.globalAlpha = this.opacity;
-    const c = this.colours;
-    const shift = (depth) => [
-      -this.parallax.x * MAX_SHIFT_X * depth,
-      -this.parallax.y * MAX_SHIFT_Y * depth,
-    ];
-
-    this.drawSnow(0, shift);
-    const [bx, by] = shift(0.3);
-    for (const t of this.trees.back) drawTree(ctx, t, bx, h + by, c.backTree, null, null);
-    this.drawSnow(1, shift);
-
-    const [gx, gy] = shift(0.55);
-    drawGround(ctx, this.trees.ground, w, h, gx, gy, c.ground);
-    const [nx, ny] = shift(0.8);
-    for (const t of this.trees.near)
-      drawTree(ctx, t, nx, h + ny, c.nearTree, c.caps, t.star ? c.star : null);
-    this.drawSnow(2, shift, fctx);
-    ctx.globalAlpha = 1;
-    fctx.globalAlpha = 1;
-  }
-
-  drawSnow(li, shift, ctx = this.ctx) {
-    const layer = SNOW[li];
-    const [ox, oy] = shift(layer.depth);
+    // All dots of a layer in one path, filled once
     const [r, g, b] = this.colours.snowRGB;
-    ctx.fillStyle = `rgba(${r},${g},${b},${layer.alpha})`;
-    ctx.strokeStyle = ctx.fillStyle;
-    if (!layer.crystal) {
+    for (const li of [0, 1]) {
+      const layer = SNOW[li];
+      const ox = -p.x * MAX_SHIFT_X * layer.depth;
+      const oy = -p.y * MAX_SHIFT_Y * layer.depth;
+      ctx.fillStyle = `rgba(${r},${g},${b},${layer.alpha})`;
       ctx.beginPath();
       for (const f of this.flakes) {
         if (f.layer !== li) continue;
@@ -407,20 +478,45 @@ class Scenery {
         ctx.arc(f.x + ox, f.y + oy, f.size, 0, TAU);
       }
       ctx.fill();
-      return;
     }
-    // A faint dark halo lets the white crystals read on the paper as well
-    ctx.lineWidth = 1.3;
-    ctx.lineCap = "round";
-    ctx.shadowColor = "rgba(15, 30, 24, 0.45)";
-    ctx.shadowBlur = 2.5;
+
+    for (const strip of this.strips) {
+      const tx = (-p.x * MAX_SHIFT_X * strip.depth).toFixed(1);
+      const ty = (-p.y * MAX_SHIFT_Y * strip.depth).toFixed(1);
+      const shift = `translate3d(${tx}px,${ty}px,0)`;
+      if (shift !== strip.shift) {
+        strip.shift = shift;
+        strip.canvas.style.transform = shift;
+      }
+    }
+
     for (const f of this.flakes) {
-      if (f.layer !== li) continue;
-      drawCrystal(ctx, f.x + ox, f.y + oy, f.size, f.spin);
+      if (!f.sprite) continue;
+      const [x, y] = this.onScreen(f);
+      const half = f.box / 2;
+      f.sprite.style.transform = `translate3d(${(x - half).toFixed(1)}px,${(y - half).toFixed(1)}px,0) rotate(${f.spin.toFixed(3)}rad)`;
     }
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
   }
+}
+
+/** Pre-draw a crystal with a faint dark halo, so it reads on the paper as well. */
+function paintCrystal(flake, colours, dpr) {
+  const box = Math.ceil(flake.size * 2 + 10);
+  const canvas = flake.sprite;
+  flake.box = box;
+  canvas.width = Math.round(box * dpr);
+  canvas.height = Math.round(box * dpr);
+  canvas.style.width = `${box}px`;
+  canvas.style.height = `${box}px`;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, box, box);
+  ctx.strokeStyle = colours.snow;
+  ctx.lineWidth = 1.3;
+  ctx.lineCap = "round";
+  ctx.shadowColor = "rgba(15, 30, 24, 0.45)";
+  ctx.shadowBlur = 2.5;
+  drawCrystal(ctx, box / 2, box / 2, flake.size, 0);
 }
 
 // -- shapes -------------------------------------------------------------------
@@ -564,16 +660,16 @@ function drawTree(ctx, t, ox, bottom, fill, snow, star) {
 }
 
 /** Snowy ground: a soft, slightly wavy band along the bottom. */
-function drawGround(ctx, ground, w, h, ox, oy, fill) {
+function drawGround(ctx, ground, w, h, ox, oy, fill, below = 10) {
   const { waves, height } = ground;
   ctx.beginPath();
-  ctx.moveTo(-60, h + 10);
+  ctx.moveTo(-60, h + below);
   for (let x = -60; x <= w + 60; x += 12) {
     let y = h - height + oy;
     for (const wv of waves) y += Math.sin((x - ox) * wv.f + wv.p) * wv.a;
     ctx.lineTo(x + ox, y);
   }
-  ctx.lineTo(w + 60 + ox, h + 10);
+  ctx.lineTo(w + 60 + ox, h + below);
   ctx.closePath();
   ctx.fillStyle = fill;
   ctx.globalAlpha *= 0.92;
