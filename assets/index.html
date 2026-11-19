@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="de" data-anlass="weihnachten">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wunschzettel</title>
+<meta name="description" content="Einen Wunschzettel schreiben und als Link teilen.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F3B30'/%3E%3Cpath d='M16 6l2.2 7.8L26 16l-7.8 2.2L16 26l-2.2-7.8L6 16l7.8-2.2z' fill='%23C9A85E'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Pinyon+Script&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1F3B30;
+    --bg-deep: #172E25;
+    --on-bg: #E8E1CF;
+    --on-bg-soft: #B9B29C;
+    --paper: #FBF8F2;
+    --paper-edge: #E7E0D0;
+    --ink: #2B2722;
+    --ink-soft: #5E574D;
+    --accent: #8A6A2C;
+    --accent-light: #C9A85E;
+    --title: #1F3B30;
+    --field: #F3EEE3;
+    --danger: #8E2B2B;
+  }
+  html[data-anlass="geburtstag"] {
+    --bg: #5A1F2B;
+    --bg-deep: #46161F;
+    --title: #5A1F2B;
+    --accent: #8A6A2C;
+  }
+  html[data-anlass="schlicht"] {
+    --bg: #E4E0D8;
+    --bg-deep: #D6D1C6;
+    --on-bg: #2B2722;
+    --on-bg-soft: #5E574D;
+    --title: #2E3A4A;
+    --accent: #4A5B70;
+    --accent-light: #8C9AAC;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    background-image: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.06), transparent 60%);
+    color: var(--ink);
+    font-family: "EB Garamond", Garamond, "Times New Roman", serif;
+    font-size: 19px;
+    line-height: 1.55;
+    font-feature-settings: "kern", "liga", "onum";
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent-light); outline-offset: 3px; border-radius: 2px; }
+  [hidden] { display: none !important; }
+
+  /* winter scenery behind everything (scenery.ffi.mjs) */
+  #scenery { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  #app { position: relative; z-index: 1; }
+
+  /* ---------- the sheet ---------- */
+  .page { padding: 56px 16px 40px; }
+  .sheet {
+    position: relative;
+    max-width: 640px;
+    margin: 0 auto;
+    background: var(--paper);
+    padding: 64px 56px 56px;
+    box-shadow: 0 1px 0 var(--paper-edge), 0 30px 60px -30px rgba(0,0,0,.45), 0 12px 24px -12px rgba(0,0,0,.25);
+    text-align: center;
+  }
+  .sheet::before {
+    content: "";
+    position: absolute;
+    inset: 14px;
+    border: 1px solid var(--accent-light);
+    outline: 1px solid var(--accent-light);
+    outline-offset: -5px;
+    opacity: .55;
+    pointer-events: none;
+  }
+  .sheet-title {
+    margin: 0;
+    font-family: "Pinyon Script", "EB Garamond", cursive;
+    font-weight: 400;
+    font-size: clamp(3.4rem, 11vw, 5.2rem);
+    line-height: 1.05;
+    color: var(--title);
+    overflow-wrap: anywhere;
+  }
+  .sheet-name {
+    margin: .4rem 0 0;
+    font-size: 1.15rem;
+    font-variant: small-caps;
+    letter-spacing: .08em;
+    color: var(--ink-soft);
+  }
+  .sheet-name:empty, .sheet-occasion:empty { display: none; }
+  .sheet-occasion { margin: .1rem 0 0; font-size: 1rem; font-style: italic; color: var(--ink-soft); }
+  .ornament { display: block; margin: 2rem auto; width: 220px; max-width: 70%; height: 14px; color: var(--accent-light); }
+  .sheet-message {
+    margin: 0 auto 2.4rem;
+    max-width: 30em;
+    font-style: italic;
+    color: var(--ink-soft);
+    white-space: pre-line;
+  }
+  .wishes { list-style: none; margin: 0; padding: 0; }
+  .wish + .wish { margin-top: 2.1rem; }
+  .wish-title {
+    margin: 0;
+    font-size: 1.45rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .wish-desc {
+    margin: .35rem auto 0;
+    max-width: 32em;
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+  }
+  .wish-desc a, .wish-link a {
+    color: var(--accent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: .18em;
+  }
+  .wish-desc a:hover, .wish-link a:hover { text-decoration-thickness: 2px; }
+  .wish-link { margin: .3rem 0 0; font-size: 1rem; font-style: italic; color: var(--ink-soft); }
+  .sheet-empty { color: var(--ink-soft); font-style: italic; margin: 0; }
+
+  .below {
+    max-width: 640px;
+    margin: 28px auto 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 28px;
+    font-size: 1rem;
+  }
+  .below a { color: var(--on-bg-soft); text-underline-offset: .2em; text-decoration-thickness: 1px; text-shadow: 0 0 3px var(--bg-deep), 0 0 10px var(--bg-deep); }
+  .below a:hover { color: var(--on-bg); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .view .sheet { animation: arrive .9s cubic-bezier(.2,.7,.2,1) both; }
+    @keyframes arrive { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ---------- editor ---------- */
+  .editor-layout {
+    display: grid;
+    gap: 40px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 16px 120px;
+    align-items: start;
+  }
+  @media (min-width: 1040px) {
+    .editor-layout { grid-template-columns: 440px 1fr; padding-top: 56px; }
+    .editor-layout .preview { position: sticky; top: 32px; }
+  }
+  .editor {
+    background: var(--paper);
+    color: var(--ink);
+    padding: 32px 28px 28px;
+    box-shadow: 0 24px 48px -28px rgba(0,0,0,.45);
+  }
+  .editor h1 { margin: 0; font-size: 1.6rem; font-weight: 500; line-height: 1.2; }
+  .editor .intro { margin: .5rem 0 1.6rem; color: var(--ink-soft); font-size: 1rem; }
+  .group { border: 0; padding: 0; margin: 0 0 1.4rem; }
+  .group > legend { padding: 0; margin-bottom: .6rem; font-size: 1.2rem; font-weight: 500; }
+  label { display: block; font-size: .95rem; color: var(--ink-soft); margin-bottom: .15rem; }
+  .field + .field { margin-top: .85rem; }
+  input, textarea, select {
+    width: 100%;
+    font: inherit;
+    font-size: 1.05rem;
+    color: var(--ink);
+    background: var(--field);
+    border: 0;
+    border-bottom: 1px solid var(--paper-edge);
+    border-radius: 2px 2px 0 0;
+    padding: .45rem .6rem;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-bottom-color: var(--accent); box-shadow: inset 0 -1px 0 var(--accent); }
+  textarea { resize: vertical; min-height: 4.2em; line-height: 1.45; }
+  .hint { margin: .25rem 0 0; font-size: .88rem; color: var(--ink-soft); font-style: italic; }
+  .anlass { display: flex; gap: 6px; flex-wrap: wrap; }
+  .anlass label {
+    flex: 1 1 0;
+    min-width: 6.5em;
+    margin: 0;
+    text-align: center;
+    cursor: pointer;
+    padding: .4rem .5rem;
+    border: 1px solid var(--paper-edge);
+    color: var(--ink);
+    font-size: 1rem;
+  }
+  .anlass input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .anlass input:checked + span { color: var(--title); font-weight: 600; }
+  .anlass label:has(input:checked) { border-color: var(--title); }
+  .anlass label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .wish-edit {
+    border-top: 1px solid var(--paper-edge);
+    padding: 1.1rem 0 1rem;
+  }
+  .wish-edit-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: .4rem; }
+  .wish-edit-head span { font-size: .95rem; color: var(--ink-soft); font-style: italic; }
+  .tools { display: flex; gap: 2px; }
+  .tool {
+    font: inherit;
+    font-size: .92rem;
+    background: none;
+    border: 0;
+    padding: .2rem .45rem;
+    color: var(--ink-soft);
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .tool:hover { color: var(--ink); background: var(--field); }
+  .tool:disabled { opacity: .35; cursor: default; background: none; }
+  .tool.remove:hover { color: var(--danger); }
+  .add {
+    display: block;
+    width: 100%;
+    font: inherit;
+    font-size: 1.05rem;
+    padding: .7rem;
+    background: none;
+    color: var(--title);
+    border: 1px dashed var(--accent-light);
+    cursor: pointer;
+  }
+  .add:hover { background: var(--field); border-style: solid; }
+
+  .actions {
+    position: sticky;
+    bottom: 0;
+    margin: 1.6rem -28px -28px;
+    padding: 16px 28px;
+    background: var(--paper);
+    border-top: 1px solid var(--paper-edge);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .btn {
+    font: inherit;
+    font-size: 1.05rem;
+    padding: .55rem 1.1rem;
+    border: 1px solid var(--title);
+    background: var(--title);
+    color: var(--paper);
+    cursor: pointer;
+    text-decoration: none;
+    border-radius: 2px;
+  }
+  .btn.secondary { background: none; color: var(--title); }
+  .btn:hover { filter: brightness(1.12); }
+  .status { font-size: .95rem; color: var(--ink-soft); font-style: italic; }
+
+  .preview-label { margin: 0 0 12px; text-align: center; font-size: 1rem; font-style: italic; color: var(--on-bg-soft); }
+  .preview .sheet { margin: 0 auto; }
+
+  @media (max-width: 560px) {
+    body { font-size: 18px; }
+    .page { padding-top: 24px; }
+    .sheet { padding: 52px 28px 44px; }
+    .sheet::before { inset: 9px; }
+    .editor { padding: 26px 18px 22px; }
+    .actions { margin: 1.4rem -18px -22px; padding: 14px 18px; }
+  }
+
+  @media print {
+    body { background: #fff; }
+    .page { padding: 0; }
+    .sheet { box-shadow: none; max-width: none; }
+    .below, #scenery { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="wunschzettel.js"></script>
+</body>
+</html>

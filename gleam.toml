@@ -1,0 +1,27 @@
+name = "wunschzettel"
+version = "1.0.0"
+description = "A wish list that lives entirely in its link"
+target = "javascript"
+
+[javascript]
+runtime = "bun"
+
+[dependencies]
+gleam_stdlib = ">= 1.1.0 and < 2.0.0"
+lustre = ">= 5.7.1 and < 6.0.0"
+modem = ">= 2.1.3 and < 3.0.0"
+gleam_regexp = ">= 1.1.1 and < 2.0.0"
+
+[dev-dependencies]
+gleeunit = ">= 1.11.0 and < 2.0.0"
+lustre_dev_tools = ">= 2.4.0 and < 3.0.0"
+
+# lustre_dev_tools: bundle with the bun from devenv/nixpkgs instead of downloading one,
+# and use our own assets/index.html (the generated one loads the script from "/",
+# which breaks under the /wunschzettel/ path on GitHub Pages).
+[tools.lustre.bin]
+bun = "system"
+
+[tools.lustre.build]
+minify = true
+no_html = true

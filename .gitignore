@@ -2,3 +2,11 @@
 devenv.local.nix
 .direnv
 .playwright-mcp
+
+#Added automatically by Lustre Dev Tools
+/.lustre
+/dist
+build/
+dist/
+node_modules/
+.lustre/
