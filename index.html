@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="de" data-anlass="weihnachten">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wunschzettel</title>
+<meta name="description" content="Einen Wunschzettel schreiben und als Link teilen.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F3B30'/%3E%3Cpath d='M16 6l2.2 7.8L26 16l-7.8 2.2L16 26l-2.2-7.8L6 16l7.8-2.2z' fill='%23C9A85E'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Pinyon+Script&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1F3B30;
+    --bg-deep: #172E25;
+    --on-bg: #E8E1CF;
+    --on-bg-soft: #B9B29C;
+    --paper: #FBF8F2;
+    --paper-edge: #E7E0D0;
+    --ink: #2B2722;
+    --ink-soft: #5E574D;
+    --accent: #8A6A2C;
+    --accent-light: #C9A85E;
+    --title: #1F3B30;
+    --field: #F3EEE3;
+    --danger: #8E2B2B;
+  }
+  html[data-anlass="geburtstag"] {
+    --bg: #5A1F2B;
+    --bg-deep: #46161F;
+    --title: #5A1F2B;
+    --accent: #8A6A2C;
+  }
+  html[data-anlass="schlicht"] {
+    --bg: #E4E0D8;
+    --bg-deep: #D6D1C6;
+    --on-bg: #2B2722;
+    --on-bg-soft: #5E574D;
+    --title: #2E3A4A;
+    --accent: #4A5B70;
+    --accent-light: #8C9AAC;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    background-image: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.06), transparent 60%);
+    color: var(--ink);
+    font-family: "EB Garamond", Garamond, "Times New Roman", serif;
+    font-size: 19px;
+    line-height: 1.55;
+    font-feature-settings: "kern", "liga", "onum";
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent-light); outline-offset: 3px; border-radius: 2px; }
+  [hidden] { display: none !important; }
+
+  /* ---------- the sheet ---------- */
+  .page { padding: 56px 16px 40px; }
+  .sheet {
+    position: relative;
+    max-width: 640px;
+    margin: 0 auto;
+    background: var(--paper);
+    padding: 64px 56px 56px;
+    box-shadow: 0 1px 0 var(--paper-edge), 0 30px 60px -30px rgba(0,0,0,.45), 0 12px 24px -12px rgba(0,0,0,.25);
+    text-align: center;
+  }
+  .sheet::before {
+    content: "";
+    position: absolute;
+    inset: 14px;
+    border: 1px solid var(--accent-light);
+    outline: 1px solid var(--accent-light);
+    outline-offset: -5px;
+    opacity: .55;
+    pointer-events: none;
+  }
+  .sheet-title {
+    margin: 0;
+    font-family: "Pinyon Script", "EB Garamond", cursive;
+    font-weight: 400;
+    font-size: clamp(3.4rem, 11vw, 5.2rem);
+    line-height: 1.05;
+    color: var(--title);
+    overflow-wrap: anywhere;
+  }
+  .sheet-name {
+    margin: .4rem 0 0;
+    font-size: 1.15rem;
+    font-variant: small-caps;
+    letter-spacing: .08em;
+    color: var(--ink-soft);
+  }
+  .sheet-name:empty { display: none; }
+  .ornament { display: block; margin: 2rem auto; width: 220px; max-width: 70%; height: 14px; color: var(--accent-light); }
+  .sheet-message {
+    margin: 0 auto 2.4rem;
+    max-width: 30em;
+    font-style: italic;
+    color: var(--ink-soft);
+    white-space: pre-line;
+  }
+  .wishes { list-style: none; margin: 0; padding: 0; }
+  .wish + .wish { margin-top: 2.1rem; }
+  .wish-title {
+    margin: 0;
+    font-size: 1.45rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .wish-desc {
+    margin: .35rem auto 0;
+    max-width: 32em;
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+  }
+  .wish-desc a, .wish-link a {
+    color: var(--accent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: .18em;
+  }
+  .wish-desc a:hover, .wish-link a:hover { text-decoration-thickness: 2px; }
+  .wish-link { margin: .3rem 0 0; font-size: 1rem; font-style: italic; color: var(--ink-soft); }
+  .sheet-empty { color: var(--ink-soft); font-style: italic; margin: 0; }
+
+  .below {
+    max-width: 640px;
+    margin: 28px auto 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 28px;
+    font-size: 1rem;
+  }
+  .below a { color: var(--on-bg-soft); text-underline-offset: .2em; text-decoration-thickness: 1px; }
+  .below a:hover { color: var(--on-bg); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .view .sheet { animation: arrive .9s cubic-bezier(.2,.7,.2,1) both; }
+    @keyframes arrive { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ---------- editor ---------- */
+  .editor-layout {
+    display: grid;
+    gap: 40px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 16px 120px;
+    align-items: start;
+  }
+  @media (min-width: 1040px) {
+    .editor-layout { grid-template-columns: 440px 1fr; padding-top: 56px; }
+    .editor-layout .preview { position: sticky; top: 32px; }
+  }
+  .editor {
+    background: var(--paper);
+    color: var(--ink);
+    padding: 32px 28px 28px;
+    box-shadow: 0 24px 48px -28px rgba(0,0,0,.45);
+  }
+  .editor h1 { margin: 0; font-size: 1.6rem; font-weight: 500; line-height: 1.2; }
+  .editor .intro { margin: .5rem 0 1.6rem; color: var(--ink-soft); font-size: 1rem; }
+  .group { border: 0; padding: 0; margin: 0 0 1.4rem; }
+  .group > legend { padding: 0; margin-bottom: .6rem; font-size: 1.2rem; font-weight: 500; }
+  label { display: block; font-size: .95rem; color: var(--ink-soft); margin-bottom: .15rem; }
+  .field + .field { margin-top: .85rem; }
+  input, textarea, select {
+    width: 100%;
+    font: inherit;
+    font-size: 1.05rem;
+    color: var(--ink);
+    background: var(--field);
+    border: 0;
+    border-bottom: 1px solid var(--paper-edge);
+    border-radius: 2px 2px 0 0;
+    padding: .45rem .6rem;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-bottom-color: var(--accent); box-shadow: inset 0 -1px 0 var(--accent); }
+  textarea { resize: vertical; min-height: 4.2em; line-height: 1.45; }
+  .hint { margin: .25rem 0 0; font-size: .88rem; color: var(--ink-soft); font-style: italic; }
+  .anlass { display: flex; gap: 6px; flex-wrap: wrap; }
+  .anlass label {
+    flex: 1 1 0;
+    min-width: 6.5em;
+    margin: 0;
+    text-align: center;
+    cursor: pointer;
+    padding: .4rem .5rem;
+    border: 1px solid var(--paper-edge);
+    color: var(--ink);
+    font-size: 1rem;
+  }
+  .anlass input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .anlass input:checked + span { color: var(--title); font-weight: 600; }
+  .anlass label:has(input:checked) { border-color: var(--title); }
+  .anlass label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .wish-edit {
+    border-top: 1px solid var(--paper-edge);
+    padding: 1.1rem 0 1rem;
+  }
+  .wish-edit-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: .4rem; }
+  .wish-edit-head span { font-size: .95rem; color: var(--ink-soft); font-style: italic; }
+  .tools { display: flex; gap: 2px; }
+  .tool {
+    font: inherit;
+    font-size: .92rem;
+    background: none;
+    border: 0;
+    padding: .2rem .45rem;
+    color: var(--ink-soft);
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .tool:hover { color: var(--ink); background: var(--field); }
+  .tool:disabled { opacity: .35; cursor: default; background: none; }
+  .tool.remove:hover { color: var(--danger); }
+  .add {
+    display: block;
+    width: 100%;
+    font: inherit;
+    font-size: 1.05rem;
+    padding: .7rem;
+    background: none;
+    color: var(--title);
+    border: 1px dashed var(--accent-light);
+    cursor: pointer;
+  }
+  .add:hover { background: var(--field); border-style: solid; }
+
+  .actions {
+    position: sticky;
+    bottom: 0;
+    margin: 1.6rem -28px -28px;
+    padding: 16px 28px;
+    background: var(--paper);
+    border-top: 1px solid var(--paper-edge);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .btn {
+    font: inherit;
+    font-size: 1.05rem;
+    padding: .55rem 1.1rem;
+    border: 1px solid var(--title);
+    background: var(--title);
+    color: var(--paper);
+    cursor: pointer;
+    text-decoration: none;
+    border-radius: 2px;
+  }
+  .btn.secondary { background: none; color: var(--title); }
+  .btn:hover { filter: brightness(1.12); }
+  .status { font-size: .95rem; color: var(--ink-soft); font-style: italic; }
+
+  .preview-label { margin: 0 0 12px; text-align: center; font-size: 1rem; font-style: italic; color: var(--on-bg-soft); }
+  .preview .sheet { margin: 0 auto; }
+
+  @media (max-width: 560px) {
+    body { font-size: 18px; }
+    .page { padding-top: 24px; }
+    .sheet { padding: 52px 28px 44px; }
+    .sheet::before { inset: 9px; }
+    .editor { padding: 26px 18px 22px; }
+    .actions { margin: 1.4rem -18px -22px; padding: 14px 18px; }
+  }
+
+  @media print {
+    body { background: #fff; }
+    .page { padding: 0; }
+    .sheet { box-shadow: none; max-width: none; }
+    .below { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<template id="ornament-tpl">
+  <svg class="ornament" viewBox="0 0 220 14" aria-hidden="true">
+    <line x1="0" y1="7" x2="92" y2="7" stroke="currentColor" stroke-width="1"/>
+    <line x1="128" y1="7" x2="220" y2="7" stroke="currentColor" stroke-width="1"/>
+    <path d="M110 0l1.6 5.4L117 7l-5.4 1.6L110 14l-1.6-5.4L103 7l5.4-1.6z" fill="currentColor"/>
+    <circle cx="97" cy="7" r="1.4" fill="currentColor"/>
+    <circle cx="123" cy="7" r="1.4" fill="currentColor"/>
+  </svg>
+</template>
+
+<main id="view" class="page view" hidden>
+  <article class="sheet" id="view-sheet"></article>
+  <nav class="below">
+    <a href="#" id="edit-this">Diesen Wunschzettel bearbeiten</a>
+    <a href="#neu">Eigenen Wunschzettel schreiben</a>
+  </nav>
+</main>
+
+<div id="edit" class="editor-layout" hidden>
+  <form class="editor" id="form" autocomplete="off">
+    <h1>Wunschzettel schreiben</h1>
+    <p class="intro">Alles, was du hier einträgst, steckt im Link. Nichts wird gespeichert: Wer den Link hat, sieht den Zettel. Um später etwas zu ändern, öffne deinen Link und wähle „Bearbeiten“.</p>
+
+    <fieldset class="group">
+      <legend>Zettel</legend>
+      <div class="field">
+        <label for="f-name">Von</label>
+        <input id="f-name" name="n" placeholder="Dein Name" maxlength="80">
+      </div>
+      <div class="field">
+        <label for="f-title">Überschrift</label>
+        <input id="f-title" name="t" placeholder="Wunschzettel" maxlength="60">
+      </div>
+      <div class="field">
+        <label id="anlass-label">Anlass</label>
+        <div class="anlass" role="radiogroup" aria-labelledby="anlass-label">
+          <label><input type="radio" name="o" value="weihnachten" checked><span>Weihnachten</span></label>
+          <label><input type="radio" name="o" value="geburtstag"><span>Geburtstag</span></label>
+          <label><input type="radio" name="o" value="schlicht"><span>Ohne Anlass</span></label>
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-msg">Ein paar Worte vorweg <span class="opt">(optional)</span></label>
+        <textarea id="f-msg" name="m" rows="2" placeholder="Ich freue mich über alles – am meisten über Zeit mit euch."></textarea>
+      </div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Wünsche</legend>
+      <div id="wish-list"></div>
+      <button type="button" class="add" id="add-wish">Wunsch hinzufügen</button>
+    </fieldset>
+
+    <div class="actions">
+      <button type="button" class="btn" id="copy">Link kopieren</button>
+      <a class="btn secondary" id="open-view" href="#">Ansehen</a>
+      <span class="status" id="status" role="status" aria-live="polite"></span>
+    </div>
+  </form>
+
+  <section class="preview" aria-label="Vorschau">
+    <p class="preview-label">So sehen es die anderen</p>
+    <article class="sheet" id="preview-sheet"></article>
+  </section>
+</div>
+
+<template id="wish-tpl">
+  <div class="wish-edit">
+    <div class="wish-edit-head">
+      <span class="wish-no"></span>
+      <div class="tools">
+        <button type="button" class="tool up" aria-label="Nach oben">hoch</button>
+        <button type="button" class="tool down" aria-label="Nach unten">runter</button>
+        <button type="button" class="tool remove">entfernen</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Was</label>
+      <input class="w-t" placeholder="z. B. Wanderschuhe" maxlength="140">
+    </div>
+    <div class="field">
+      <label>Beschreibung <span class="opt">(optional)</span></label>
+      <textarea class="w-d" rows="2" placeholder="Größe 44, gern in Dunkelgrün"></textarea>
+    </div>
+    <div class="field">
+      <label>Link <span class="opt">(optional)</span></label>
+      <input class="w-u" type="url" inputmode="url" placeholder="https://…">
+    </div>
+  </div>
+</template>
+
+<script>
+"use strict";
+
+const ANLAESSE = ["weihnachten", "geburtstag", "schlicht"];
+const DEFAULT_TITLE = "Wunschzettel";
+const $ = (s, r = document) => r.querySelector(s);
+
+/* ---------- encoding: JSON → deflate → base64url ---------- */
+
+function toB64url(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function fromB64url(str) {
+  const b = atob(str.replace(/-/g, "+").replace(/_/g, "/"));
+  const out = new Uint8Array(b.length);
+  for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i);
+  return out;
+}
+async function pipe(bytes, stream) {
+  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+}
+
+function pack(z) {
+  const o = {};
+  if (z.n) o.n = z.n;
+  if (z.t && z.t !== DEFAULT_TITLE) o.t = z.t;
+  if (z.o && z.o !== "weihnachten") o.o = z.o;
+  if (z.m) o.m = z.m;
+  o.w = z.w.filter(w => w.t || w.d || w.u).map(w => {
+    const a = [w.t || "", w.d || "", w.u || ""];
+    while (a.length > 1 && !a[a.length - 1]) a.pop();
+    return a;
+  });
+  return o;
+}
+function unpack(o) {
+  return {
+    n: str(o.n), t: str(o.t) || DEFAULT_TITLE,
+    o: ANLAESSE.includes(o.o) ? o.o : "weihnachten",
+    m: str(o.m),
+    w: Array.isArray(o.w) ? o.w.map(a => ({ t: str(a[0]), d: str(a[1]), u: str(a[2]) })) : [],
+  };
+}
+function str(v) { return typeof v === "string" ? v : ""; }
+
+async function encode(z) {
+  const bytes = new TextEncoder().encode(JSON.stringify(pack(z)));
+  if ("CompressionStream" in window) return "z" + toB64url(await pipe(bytes, new CompressionStream("deflate-raw")));
+  return "j" + toB64url(bytes);
+}
+async function decode(s) {
+  const kind = s[0], bytes = fromB64url(s.slice(1));
+  const raw = kind === "z" ? await pipe(bytes, new DecompressionStream("deflate-raw")) : bytes;
+  return unpack(JSON.parse(new TextDecoder().decode(raw)));
+}
+
+/* ---------- rendering ---------- */
+
+function safeUrl(u) {
+  u = (u || "").trim();
+  if (!u) return null;
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = "https://" + u;
+  try {
+    const url = new URL(u);
+    return url.protocol === "https:" || url.protocol === "http:" ? url : null;
+  } catch { return null; }
+}
+function link(href, text) {
+  const a = document.createElement("a");
+  a.href = href; a.textContent = text;
+  a.target = "_blank"; a.rel = "noopener noreferrer";
+  return a;
+}
+/* Plain text with [text](url) and bare https:// links; no HTML ever. */
+function richText(el, text) {
+  const re = /\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?"'])/g;
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    el.append(text.slice(last, m.index));
+    const url = safeUrl(m[2] || m[3]);
+    if (url) el.append(link(url.href, m[1] || url.hostname.replace(/^www\./, "")));
+    else el.append(m[0]);
+    last = re.lastIndex;
+  }
+  el.append(text.slice(last));
+}
+function make(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function renderSheet(sheet, z) {
+  sheet.replaceChildren();
+  const header = make("header");
+  header.append(make("h1", "sheet-title", z.t || DEFAULT_TITLE));
+  header.append(make("p", "sheet-name", z.n ? "von " + z.n : ""));
+  sheet.append(header, $("#ornament-tpl").content.cloneNode(true));
+  if (z.m) sheet.append(make("p", "sheet-message", z.m));
+
+  const wishes = z.w.filter(w => w.t || w.d || w.u);
+  if (!wishes.length) {
+    sheet.append(make("p", "sheet-empty", "Noch keine Wünsche."));
+  } else {
+    const ul = make("ul", "wishes");
+    for (const w of wishes) {
+      const li = make("li", "wish");
+      const url = safeUrl(w.u);
+      li.append(make("h2", "wish-title", w.t || (url ? url.hostname.replace(/^www\./, "") : "")));
+      if (w.d) { const p = make("p", "wish-desc"); richText(p, w.d); li.append(p); }
+      if (url) {
+        const p = make("p", "wish-link");
+        p.append(link(url.href, "ansehen bei " + url.hostname.replace(/^www\./, "")));
+        li.append(p);
+      }
+      ul.append(li);
+    }
+    sheet.append(ul);
+  }
+  sheet.append($("#ornament-tpl").content.cloneNode(true));
+}
+
+function applyAnlass(o) { document.documentElement.dataset.anlass = o; }
+function setTitle(z) { document.title = (z.t || DEFAULT_TITLE) + (z.n ? " von " + z.n : ""); }
+
+/* ---------- editor ---------- */
+
+const form = $("#form");
+const list = $("#wish-list");
+
+function addWishRow(w = {}, focus = false) {
+  const row = $("#wish-tpl").content.firstElementChild.cloneNode(true);
+  const uid = Math.random().toString(36).slice(2, 8);
+  row.querySelectorAll(".field").forEach((f, i) => {
+    const input = f.querySelector("input, textarea");
+    input.id = "w-" + uid + "-" + i;
+    f.querySelector("label").htmlFor = input.id;
+  });
+  row.querySelector(".w-t").value = w.t || "";
+  row.querySelector(".w-d").value = w.d || "";
+  row.querySelector(".w-u").value = w.u || "";
+  list.append(row);
+  renumber();
+  if (focus) row.querySelector(".w-t").focus();
+}
+function renumber() {
+  const rows = [...list.children];
+  rows.forEach((r, i) => {
+    r.querySelector(".wish-no").textContent = "Wunsch " + (i + 1);
+    r.querySelector(".up").disabled = i === 0;
+    r.querySelector(".down").disabled = i === rows.length - 1;
+  });
+}
+list.addEventListener("click", e => {
+  const btn = e.target.closest(".tool");
+  if (!btn) return;
+  const row = btn.closest(".wish-edit");
+  if (btn.classList.contains("remove")) {
+    const next = row.nextElementSibling || row.previousElementSibling;
+    row.remove();
+    if (!list.children.length) addWishRow();
+    (next || list.firstElementChild).querySelector(".w-t").focus();
+  } else if (btn.classList.contains("up") && row.previousElementSibling) {
+    row.previousElementSibling.before(row); btn.disabled || btn.focus();
+  } else if (btn.classList.contains("down") && row.nextElementSibling) {
+    row.nextElementSibling.after(row); btn.disabled || btn.focus();
+  }
+  renumber();
+  update();
+});
+$("#add-wish").addEventListener("click", () => { addWishRow({}, true); update(); });
+
+function readForm() {
+  return {
+    n: $("#f-name").value.trim(),
+    t: $("#f-title").value.trim() || DEFAULT_TITLE,
+    o: form.elements.o.value,
+    m: $("#f-msg").value.trim(),
+    w: [...list.children].map(r => ({
+      t: r.querySelector(".w-t").value.trim(),
+      d: r.querySelector(".w-d").value.trim(),
+      u: r.querySelector(".w-u").value.trim(),
+    })),
+  };
+}
+function fillForm(z) {
+  $("#f-name").value = z.n;
+  $("#f-title").value = z.t === DEFAULT_TITLE ? "" : z.t;
+  form.elements.o.value = z.o;
+  $("#f-msg").value = z.m;
+  list.replaceChildren();
+  (z.w.length ? z.w : [{}]).forEach(w => addWishRow(w));
+}
+
+let shareHash = "";
+let seq = 0;
+async function update() {
+  const z = readForm();
+  applyAnlass(z.o);
+  setTitle(z);
+  renderSheet($("#preview-sheet"), z);
+  const mine = ++seq;
+  const code = await encode(z);
+  if (mine !== seq) return;
+  shareHash = "#d=" + code;
+  $("#open-view").href = shareHash;
+  history.replaceState(null, "", "#bearbeiten&d=" + code);
+  $("#status").textContent = "";
+}
+form.addEventListener("input", update);
+form.addEventListener("submit", e => e.preventDefault());
+
+$("#copy").addEventListener("click", async () => {
+  await update();
+  const url = location.origin + location.pathname + shareHash;
+  const status = $("#status");
+  try {
+    await navigator.clipboard.writeText(url);
+    status.textContent = "Link kopiert";
+  } catch {
+    window.prompt("Link zum Kopieren:", url);
+  }
+});
+
+/* ---------- routing ---------- */
+
+async function route() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const code = params.get("d");
+  let z = null;
+  if (code) {
+    try { z = await decode(code); }
+    catch { z = null; }
+  }
+  const editing = !code || params.has("bearbeiten") || params.has("neu") || !z;
+
+  $("#view").hidden = editing;
+  $("#edit").hidden = !editing;
+
+  if (editing) {
+    const blank = { n: "", t: DEFAULT_TITLE, o: "weihnachten", m: "", w: [] };
+    fillForm(params.has("neu") ? blank : (z || blank));
+    if (code && !z) $("#status").textContent = "Dieser Link ist unvollständig. Hier kannst du neu beginnen.";
+    await update();
+    window.scrollTo(0, 0);
+  } else {
+    applyAnlass(z.o);
+    setTitle(z);
+    renderSheet($("#view-sheet"), z);
+    $("#edit-this").href = "#bearbeiten&d=" + code;
+    window.scrollTo(0, 0);
+  }
+}
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>
