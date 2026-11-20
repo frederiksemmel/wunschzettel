@@ -1,9 +1,9 @@
 // Winter scenery behind the card for Weihnachten: falling snow in three depths and
-// fir trees on snowy ground. The snow plays along: the mouse shifts the layers
+// fir trees. The snow plays along: the mouse shifts the layers
 // (parallax) and pushes flakes aside, a tap blows them away, a finger sweeps them
 // along, and scrolling is wind that carries and swirls them.
 //
-// Built to stay smooth and cheap at 60 fps: the trees and the ground are drawn once
+// Built to stay smooth and cheap at 60 fps: the trees are drawn once
 // into strips that only move by CSS transform, the crystals in front of the card are
 // small pre-drawn images moved the same way, and only the falling dots are redrawn
 // each frame, at 1x resolution. Moving finished layers is the compositor's job and
@@ -47,10 +47,13 @@ const MAX_SHIFT_Y = 16;
 // Strips reach this far past the screen edges, so the parallax never shows a gap
 const PAD = 48;
 
-/** The tree and ground strips, back to front, with their parallax depth. */
+// The trees fade into the background over this many px above the screen's bottom edge,
+// so whatever the browser shows below them (Safari's toolbar area) meets plain colour
+const FADE = 56;
+
+/** The tree strips, back to front, with their parallax depth. */
 const STRIPS = [
   { name: "back", depth: 0.3 },
-  { name: "ground", depth: 0.55 },
   { name: "near", depth: 0.8 },
 ];
 
@@ -75,7 +78,7 @@ function placed(el, css) {
 
 class Scenery {
   constructor() {
-    // Behind the page: the falling dots, then the tree and ground strips
+    // Behind the page: the falling dots, then the tree strips
     this.back = layer("scenery");
     this.dots = placed(document.createElement("canvas"), { width: "100%", height: "100%" });
     this.ctx = this.dots.getContext("2d");
@@ -247,7 +250,6 @@ class Scenery {
     const snow = get("--on-bg", "#E8E1CF");
     this.colours = {
       snow: rgb(snow),
-      ground: rgb(mix(snow, bg, 0.42)),
       caps: rgb(mix(snow, deep, 0.25)),
       backTree: rgb(mix(bg, snow, 0.09)),
       nearTree: rgb(mix(deep, [0, 0, 0], 0.3)),
@@ -278,7 +280,7 @@ class Scenery {
     this.wake();
   }
 
-  /** Draw the trees and the ground once; afterwards they only move. */
+  /** Draw the trees once; afterwards they only move. */
   paintStrips() {
     const { colours: c, trees, w, dpr } = this;
     if (!c || !trees.width) return;
@@ -298,13 +300,12 @@ class Scenery {
       ctx.clearRect(0, 0, w + 2 * PAD, height);
       if (strip.name === "back") {
         for (const t of trees.back) drawTree(ctx, t, PAD, bottom, c.backTree, null, null);
-      } else if (strip.name === "ground") {
-        drawGround(ctx, trees.ground, w, bottom, PAD, 0, c.ground, PAD + 10);
       } else {
         for (const t of trees.near) {
           drawTree(ctx, t, PAD, bottom, c.nearTree, c.caps, t.star ? c.star : null);
         }
       }
+      fadeOut(ctx, w + 2 * PAD, bottom, height);
     }
   }
 
@@ -559,18 +560,19 @@ function drawCrystal(ctx, x, y, size, spin) {
   ctx.stroke();
 }
 
-/** Trees at fixed positions for a screen width; a seeded random keeps them steady. */
+/** Trees at fixed positions for a screen width; a seeded random keeps them steady.
+ * Bases sit a little above the bottom edge, so the fade leaves most of each tree. */
 function plantTrees(w, h) {
   const rand = seeded(7);
   const scale = Math.min(1, Math.max(0.6, w / 1200));
-  const groundH = clamp(h * 0.04, 20, 44);
+  const foot = clamp(h * 0.04, 20, 44) + FADE * 0.5;
 
   const back = [];
   for (let x = -20; x < w + 40; x += (38 + rand() * 34) * scale) {
     const height = (70 + rand() * 80) * scale;
     back.push({
       x,
-      base: groundH * 0.55 + rand() * 6,
+      base: foot * 0.55 + rand() * 6,
       height,
       width: height * (0.5 + rand() * 0.12),
       tiers: 4,
@@ -583,7 +585,7 @@ function plantTrees(w, h) {
       const height = (150 + rand() * 140) * scale;
       near.push({
         x: from + ((to - from) * (i + rand() * 0.6)) / count,
-        base: groundH * (0.25 + rand() * 0.35),
+        base: foot * (0.25 + rand() * 0.35),
         height,
         width: height * (0.48 + rand() * 0.1),
         tiers: 5,
@@ -596,11 +598,7 @@ function plantTrees(w, h) {
   cluster(w - side, w + side * 0.25, w < 600 ? 2 : 3);
   // The tallest tree carries the star from the ornament
   near.reduce((a, b) => (b.height > a.height ? b : a)).star = true;
-
-  const ground = [];
-  for (let i = 0; i < 4; i++)
-    ground.push({ f: 0.002 + rand() * 0.006, p: rand() * TAU, a: 3 + rand() * 7 });
-  return { back, near, width: w, ground: { waves: ground, height: groundH } };
+  return { back, near, width: w };
 }
 
 /** A fir: stacked tiers with drooping edges, snow resting on each tier. */
@@ -659,22 +657,19 @@ function drawTree(ctx, t, ox, bottom, fill, snow, star) {
   }
 }
 
-/** Snowy ground: a soft, slightly wavy band along the bottom. */
-function drawGround(ctx, ground, w, h, ox, oy, fill, below = 10) {
-  const { waves, height } = ground;
-  ctx.beginPath();
-  ctx.moveTo(-60, h + below);
-  for (let x = -60; x <= w + 60; x += 12) {
-    let y = h - height + oy;
-    for (const wv of waves) y += Math.sin((x - ox) * wv.f + wv.p) * wv.a;
-    ctx.lineTo(x + ox, y);
-  }
-  ctx.lineTo(w + 60 + ox, h + below);
-  ctx.closePath();
-  ctx.fillStyle = fill;
-  ctx.globalAlpha *= 0.92;
-  ctx.fill();
-  ctx.globalAlpha /= 0.92;
+/** Erase the bottom of a strip gradually, from opaque at FADE above the screen's
+ * bottom edge to fully gone at it and below. */
+function fadeOut(ctx, width, bottom, height) {
+  const fade = ctx.createLinearGradient(0, bottom - FADE, 0, bottom);
+  fade.addColorStop(0, "rgba(0,0,0,0)");
+  fade.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, bottom - FADE, width, FADE);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, bottom, width, height - bottom);
+  ctx.restore();
 }
 
 // -- small helpers --------------------------------------------------------------
