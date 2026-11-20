@@ -1,0 +1,58 @@
+/* Briefbogen: the card as real letter paper, numbered wishes, a wax seal */
+html[data-stil="brief"] {
+  --paper: #FAF5EA;
+}
+html[data-stil="brief"] .sheet {
+  background-color: var(--paper);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .34 0 0 0 0 .22 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  padding-bottom: 76px;
+}
+html[data-stil="brief"] .sheet-title { font-size: clamp(3.8rem, 13vw, 5.8rem); }
+html[data-stil="brief"] .sheet-name { font-size: 1.05rem; letter-spacing: .14em; }
+
+html[data-stil="brief"] .wishes {
+  counter-reset: wish;
+  max-width: 30em;
+  margin: 0 auto;
+  text-align: left;
+}
+html[data-stil="brief"] .wish {
+  counter-increment: wish;
+  position: relative;
+  padding-left: 2.4rem;
+}
+html[data-stil="brief"] .wish + .wish {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(138, 106, 44, .2);
+}
+html[data-stil="brief"] .wish::before {
+  content: counter(wish, lower-roman) ".";
+  position: absolute;
+  left: 0;
+  width: 1.8rem;
+  text-align: right;
+  font-style: italic;
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: var(--accent);
+}
+html[data-stil="brief"] .wish-title { font-size: 1.35rem; }
+html[data-stil="brief"] .wish-desc { margin-left: 0; }
+
+/* the wax seal, half over the bottom edge */
+html[data-stil="brief"] .view .sheet::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -30px;
+  width: 66px;
+  height: 66px;
+  margin-left: -33px;
+  border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 5l2.4 8.6L27 16l-8.6 2.4L16 27l-2.4-8.6L5 16l8.6-2.4z' fill='%23E9B9A8' fill-opacity='.85'/%3E%3C/svg%3E") center / 30px no-repeat,
+    radial-gradient(circle at 36% 30%, #C4473F, #962A26 55%, #6C1B1A);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, .35), inset 0 0 0 6px rgba(60, 10, 10, .18);
+}
+html[data-stil="brief"] .below { margin-top: 56px; }

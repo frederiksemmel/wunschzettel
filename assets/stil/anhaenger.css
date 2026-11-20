@@ -1,0 +1,55 @@
+/* Geschenkanhänger: every wish a kraft-paper gift tag on red-and-white twine */
+html[data-stil="anhaenger"] {
+  --title: #F1E8D4;
+  --kraft: #D6B98A;
+  --kraft-ink: #3B2A17;
+  --kraft-soft: #6A5236;
+}
+html[data-stil="anhaenger"] .view .sheet {
+  background: transparent;
+  box-shadow: none;
+  padding: 40px 4px 24px;
+}
+html[data-stil="anhaenger"] .view .sheet::before { display: none; }
+html[data-stil="anhaenger"] .view .sheet-name,
+html[data-stil="anhaenger"] .view .sheet-occasion,
+html[data-stil="anhaenger"] .view .sheet-message { color: var(--on-bg-soft); }
+
+html[data-stil="anhaenger"] .view .wishes {
+  position: relative;
+  max-width: 30em;
+  margin: 0 auto;
+  text-align: left;
+}
+/* baker's twine running through every tag's hole */
+html[data-stil="anhaenger"] .view .wishes::before {
+  content: "";
+  position: absolute;
+  left: 27px;
+  top: -24px;
+  bottom: -24px;
+  width: 3px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(170deg, #B3312F 0 5px, #F3E9D6 5px 10px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+}
+html[data-stil="anhaenger"] .view .wish {
+  position: relative;
+  z-index: 1;
+  padding: 18px 20px 18px 56px;
+  background-color: var(--kraft);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .25 0 0 0 0 .12 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  color: var(--kraft-ink);
+  clip-path: polygon(22px 0, 100% 0, 100% 100%, 22px 100%, 0 calc(100% - 22px), 0 22px);
+  -webkit-mask: radial-gradient(circle at 28.5px 50%, transparent 6px, #000 7px);
+  mask: radial-gradient(circle at 28.5px 50%, transparent 6px, #000 7px);
+}
+html[data-stil="anhaenger"] .view .wish:nth-child(odd) { transform: rotate(-1.1deg); }
+html[data-stil="anhaenger"] .view .wish:nth-child(even) { transform: rotate(.9deg); }
+html[data-stil="anhaenger"] .view .wish + .wish { margin-top: 16px; }
+html[data-stil="anhaenger"] .view .wish-title { color: var(--kraft-ink); font-weight: 600; font-size: 1.3rem; }
+html[data-stil="anhaenger"] .view .wish-desc,
+html[data-stil="anhaenger"] .view .wish-link { color: var(--kraft-soft); margin-left: 0; }
+html[data-stil="anhaenger"] .view .wish-desc a,
+html[data-stil="anhaenger"] .view .wish-link a { color: #8E2B22; }
+html[data-stil="anhaenger"] .view .ornament { margin: 2.2rem auto; }

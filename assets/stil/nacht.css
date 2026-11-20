@@ -1,0 +1,50 @@
+/* Winternacht: no card, the list written straight onto a night sky with a moon */
+html[data-stil="nacht"] {
+  --bg: #0E1729;
+  --bg-deep: #0A1120;
+  --on-bg: #E9E4D6;
+  --on-bg-soft: #A9AFC0;
+  --ink: #EEE8DA;
+  --ink-soft: #AFB5C5;
+  --title: #F2E4BF;
+  --accent: #DDBE72;
+  --accent-light: #DDBE72;
+  --tree-back: #17253E;
+  --tree-near: #060B16;
+  --tree-caps: #C9CEDA;
+}
+html[data-stil="nacht"] body::after {
+  content: "";
+  position: fixed;
+  top: 26px;
+  right: 22px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 36%, #FBF6E6, #E8DFC4 70%);
+  box-shadow: 0 0 30px 6px rgba(245, 236, 210, .22), 0 0 90px 30px rgba(245, 236, 210, .07);
+  pointer-events: none;
+}
+html[data-stil="nacht"] .view .sheet {
+  background: transparent;
+  box-shadow: none;
+  padding: 72px 12px 40px;
+}
+html[data-stil="nacht"] .view .sheet::before { display: none; }
+html[data-stil="nacht"] .sheet-title {
+  font-size: clamp(4rem, 15vw, 6rem);
+  text-shadow: 0 0 24px rgba(242, 228, 191, .25);
+}
+html[data-stil="nacht"] .sheet-name { letter-spacing: .14em; }
+html[data-stil="nacht"] .wish + .wish { margin-top: 0; }
+html[data-stil="nacht"] .wish + .wish::before {
+  content: "✦";
+  display: block;
+  margin: 1.5rem 0 1.3rem;
+  font-size: .75rem;
+  color: var(--accent);
+  opacity: .7;
+}
+html[data-stil="nacht"] .wish-title { font-weight: 400; font-size: 1.55rem; }
+html[data-stil="nacht"] .below { margin-top: 8px; }
+html[data-stil="nacht"] .below a { text-shadow: none; }

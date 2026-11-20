@@ -290,6 +290,16 @@
     .below, #scenery, #scenery-front { display: none; }
   }
 </style>
+<script>
+  // Design previews: ?stil=<name> adds stil/<name>.css on top of the styles above
+  (function () {
+    var stil = new URLSearchParams(location.search).get("stil");
+    if (stil && /^[a-z]+$/.test(stil)) {
+      document.documentElement.dataset.stil = stil;
+      document.write('<link rel="stylesheet" href="stil/' + stil + '.css">');
+    }
+  })();
+</script>
 </head>
 <body>
 <div id="app"></div>

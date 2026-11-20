@@ -1,0 +1,76 @@
+/* Magazin: light and editorial, big serif headline, numbered list on hairlines */
+html[data-stil="magazin"] {
+  --bg: #F3EFE6;
+  --bg-deep: #E7E1D3;
+  --on-bg: #FFFFFF;
+  --on-bg-soft: #5F5A51;
+  --ink: #1C1A17;
+  --ink-soft: #5F5A51;
+  --title: #1C1A17;
+  --accent: #A8322A;
+  --accent-light: #A8322A;
+  --tree-back: #E6E0D3;
+  --tree-near: #D3CBBA;
+  --tree-caps: #F3EFE6;
+}
+/* no snow on a light ground, only the trees */
+html[data-stil="magazin"] #scenery > canvas:first-child,
+html[data-stil="magazin"] #scenery-front { display: none; }
+
+html[data-stil="magazin"] .view .sheet {
+  background: transparent;
+  box-shadow: none;
+  padding: 40px 6px 24px;
+  text-align: left;
+}
+html[data-stil="magazin"] .view .sheet::before,
+html[data-stil="magazin"] .view .ornament { display: none; }
+html[data-stil="magazin"] .view header {
+  padding-bottom: 1.1rem;
+  margin-bottom: 1.6rem;
+  border-bottom: 2px solid var(--ink);
+}
+html[data-stil="magazin"] .view .sheet-title {
+  font-family: "EB Garamond", Garamond, serif;
+  font-weight: 500;
+  font-size: clamp(3.2rem, 14vw, 5.6rem);
+  line-height: .95;
+  letter-spacing: -.025em;
+}
+html[data-stil="magazin"] .view .sheet-name {
+  order: -1;
+  margin: 0 0 .9rem;
+  font-variant: normal;
+  text-transform: uppercase;
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .2em;
+  color: var(--accent);
+}
+html[data-stil="magazin"] .view header { display: flex; flex-direction: column; }
+html[data-stil="magazin"] .view .sheet-message { margin-left: 0; font-size: 1.1rem; }
+
+html[data-stil="magazin"] .view .wishes { counter-reset: wish; }
+html[data-stil="magazin"] .view .wish {
+  counter-increment: wish;
+  display: grid;
+  grid-template-columns: 2.9rem 1fr;
+  padding: 1.1rem 0 1.2rem;
+  border-bottom: 1px solid rgba(28, 26, 23, .16);
+}
+html[data-stil="magazin"] .view .wish + .wish { margin-top: 0; }
+html[data-stil="magazin"] .view .wish::before {
+  content: counter(wish, decimal-leading-zero);
+  grid-row: 1 / span 3;
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-feature-settings: "lnum", "tnum";
+  line-height: 1.9;
+  color: var(--accent);
+}
+html[data-stil="magazin"] .view .wish > * { grid-column: 2; }
+html[data-stil="magazin"] .view .wish-title { font-size: 1.5rem; }
+html[data-stil="magazin"] .view .wish-desc { margin-left: 0; }
+html[data-stil="magazin"] .below { justify-content: flex-start; padding: 0 22px; }
+html[data-stil="magazin"] .below a { color: var(--ink); text-shadow: none; }
+html[data-stil="magazin"] .view .sheet { animation: none; }

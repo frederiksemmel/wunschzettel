@@ -1,0 +1,37 @@
+/* Scherenschnitt: Swiss paper cut, red ground, white trees, a card with a cut edge */
+html[data-stil="scherenschnitt"] {
+  --bg: #9B1C22;
+  --bg-deep: #7A141A;
+  --on-bg: #FBF3E8;
+  --on-bg-soft: #F2D9CC;
+  --paper: #FBF6EE;
+  --ink: #2A1A17;
+  --ink-soft: #6A4A43;
+  --title: #9B1C22;
+  --accent: #9B1C22;
+  --accent-light: #9B1C22;
+  --tree-back: #B23A3F;
+  --tree-near: #FBF3E8;
+  --tree-caps: #FBF3E8;
+}
+html[data-stil="scherenschnitt"] .sheet {
+  box-shadow: none;
+  -webkit-mask:
+    radial-gradient(circle at 50% 0, transparent 7px, #000 7.5px) 0 0 / 20px 51% repeat-x,
+    radial-gradient(circle at 50% 100%, transparent 7px, #000 7.5px) 0 100% / 20px 51% repeat-x;
+  mask:
+    radial-gradient(circle at 50% 0, transparent 7px, #000 7.5px) 0 0 / 20px 51% repeat-x,
+    radial-gradient(circle at 50% 100%, transparent 7px, #000 7.5px) 0 100% / 20px 51% repeat-x;
+}
+html[data-stil="scherenschnitt"] .sheet::before {
+  inset: 20px 12px;
+  border: 1.5px solid var(--accent);
+  outline: 1px solid var(--accent);
+  outline-offset: -6px;
+  opacity: .8;
+}
+html[data-stil="scherenschnitt"] .sheet-title { font-size: clamp(3.8rem, 13vw, 5.6rem); }
+html[data-stil="scherenschnitt"] .wish-title { color: var(--accent); font-weight: 600; }
+html[data-stil="scherenschnitt"] .wish-desc a,
+html[data-stil="scherenschnitt"] .wish-link a { color: var(--accent); }
+html[data-stil="scherenschnitt"] .below a { color: var(--on-bg); text-shadow: none; }

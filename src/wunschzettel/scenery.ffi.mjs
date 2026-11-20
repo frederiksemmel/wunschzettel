@@ -131,6 +131,8 @@ class Scenery {
       attributeFilter: ["data-anlass"],
     });
     window.addEventListener("resize", () => this.resize());
+    // Stylesheets that arrive after start() can change the colours
+    window.addEventListener("load", () => this.follow());
     document.addEventListener("visibilitychange", () => this.wake());
     this.still.addEventListener?.("change", () => this.wake());
 
@@ -248,11 +250,13 @@ class Scenery {
     const bg = get("--bg", "#1F3B30");
     const deep = get("--bg-deep", "#172E25");
     const snow = get("--on-bg", "#E8E1CF");
+    // A style can set the tree colours itself; otherwise they follow the ground colour
+    const own = (name) => parseHex(css.getPropertyValue(name).trim());
     this.colours = {
       snow: rgb(snow),
-      caps: rgb(mix(snow, deep, 0.25)),
-      backTree: rgb(mix(bg, snow, 0.09)),
-      nearTree: rgb(mix(deep, [0, 0, 0], 0.3)),
+      caps: rgb(own("--tree-caps") || mix(snow, deep, 0.25)),
+      backTree: rgb(own("--tree-back") || mix(bg, snow, 0.09)),
+      nearTree: rgb(own("--tree-near") || mix(deep, [0, 0, 0], 0.3)),
       star: rgb(get("--accent-light", "#C9A85E")),
       snowRGB: snow,
     };
